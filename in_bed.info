@@ -1,0 +1,4 @@
+name = In Bed
+description = Example module used to demo the batch api
+package = Examples
+core = 7.x

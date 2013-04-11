@@ -1,0 +1,144 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function in_bed_menu() {
+  $items['in/bed'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('in_bed_form'),
+    'access callback' => TRUE,
+  );
+
+  return $items;
+}
+
+/**
+ * Defines the "in bed-ify" form offering users a button to click to add "in
+ * bed" to the end of node titles site-wide.
+ */
+function in_bed_form($form, &$form_state) {
+  $form['#submit'] = array('in_bed_form_submit');
+  $form['warning'] = array(
+    '#type' => 'markup',
+    '#markup' => t('Clicking the button below will add "in bed" to the end of all your node titles... ALL your node titles.'),
+    '#prefix' => '<div class="messages warning">',
+    '#suffix' => '</div>',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'In bed-ify ALL nodes',
+  );
+
+  return $form;
+}
+
+/**
+ * Form submit function.
+ */
+function in_bed_form_submit() {
+  $batch = array(
+    'title' => t('In Bed...'),
+    'operations' => array(
+      array('in_bed_ify_node_titles', array()),
+    ),
+    'finished' => 'in_bed_finished',
+    'init_message' => t('Beginning "In Bed" match process.'),
+    'progress_message' => t('Processing&hellip;'),
+    'error_message' => t('An error occured while processing "In Bed".'),
+  );
+
+  // When you set a batch in a form submit function (which is almost always)
+  // Drupal automatically triggers it.
+  batch_set($batch);
+}
+
+/**
+ * Define the main batch process function.
+ */
+function in_bed_ify_node_titles(&$context) {
+  // First check if this is the first time the batch is running. If so, set some
+  // default values. Note that the $context variable persists each time this
+  // function gets run. In any given batch, this function will run "number of
+  // items to process in a single page request" / "total items to process".
+  if (!isset($context['sandbox']['progress'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['max'] = db_select('node', 'n')
+      ->fields('n', array('nid'))
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+
+    // Note that $context['results'] will be passed to the "finished" function.
+    $context['results']['%migrated'] = 0;
+    $context['results']['%skipped'] = 0;
+  }
+
+  // Only migrate this many nodes at a time. If this number is too high, the
+  // PHP request may time out or run out of memory.
+  $limit = 5;
+
+  // Select the next "limit" number of nids from the node table.
+  $result = db_query_range('SELECT nid FROM {node}', 0, $limit);
+
+  while ($nid = $result->fetchField()) {
+    $in_bedified = _in_bed_it($nid);
+
+    // The "in bed-ification" either worked, or didn't. Either way, let's keep
+    // track of how many times this happens.
+    if ($in_bedified) {
+      $context['results']['%migrated']++;
+    }
+    else {
+      $context['results']['%skipped']++;
+    }
+
+    // Let's also keep track of the total number of nodes processed.
+    $context['sandbox']['progress']++;
+    $context['message'] = t('Migrated @processed out of @total nodes so far.', array('@processed' => $context['sandbox']['progress'], '@total' => $context['sandbox']['max']));
+  }
+
+  // Drupal expects the $context['finished'] value to be some decimal between 0
+  // and 1. If it's .66, then the progress bar will display 66% complete; if
+  // it's 1, then we are finished and this process function will not be called
+  // again.
+  if ($context['sandbox']['progress'] <= ($context['sandbox']['max'])) {
+    $context['finished'] = $context['sandbox']['max'] == 0 ? 1 : $context['sandbox']['progress'] / ($context['sandbox']['max']);
+  }
+
+}
+
+/**
+ * Define the batch process finished function.
+ */
+function in_bed_finished($success, $results, $operations) {
+  if ($success) {
+    drupal_set_message(t('Migration complete: %migrated nodes were in-bed-ified and %skipped nodes were skipped for some reason.', $results));
+  }
+  else {
+    drupal_set_message(t('Migration failed.'), 'error');
+  }
+}
+
+/**
+ * A helper function to add "in bed" to a node's title.
+ */
+function _in_bed_it($nid) {
+  $node = node_load($nid);
+
+  // Node titles can only be 255 characters in length. If the title is 253,
+  // then adding "in bed" will make it too long and we will get a database
+  // error.
+  if (isset($node->title) &&  strlen($node->title) <= 245) {
+    $node->title .= t(" in bed");
+    node_save($node);
+
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+
