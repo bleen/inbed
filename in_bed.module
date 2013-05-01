@@ -96,7 +96,7 @@ function in_bed_ify_node_titles(&$context) {
 
     // Let's also keep track of the total number of nodes processed.
     $context['sandbox']['progress']++;
-    $context['message'] = t('Migrated @processed out of @total nodes so far.', array('@processed' => $context['sandbox']['progress'], '@total' => $context['sandbox']['max']));
+    $context['message'] = t('In-bed-ified @processed out of @total nodes so far.', array('@processed' => $context['sandbox']['progress'], '@total' => $context['sandbox']['max']));
   }
 
   // Drupal expects the $context['finished'] value to be some decimal between 0
@@ -114,10 +114,10 @@ function in_bed_ify_node_titles(&$context) {
  */
 function in_bed_finished($success, $results, $operations) {
   if ($success) {
-    drupal_set_message(t('Migration complete: %migrated nodes were in-bed-ified and %skipped nodes were skipped for some reason.', $results));
+    drupal_set_message(t('In-bed-ification complete: %migrated nodes were in-bed-ified and %skipped nodes were skipped for some reason.', $results));
   }
   else {
-    drupal_set_message(t('Migration failed.'), 'error');
+    drupal_set_message(t('In-bed-ification failed.'), 'error');
   }
 }
 
