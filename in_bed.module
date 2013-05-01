@@ -80,7 +80,7 @@ function in_bed_ify_node_titles(&$context) {
   $limit = 5;
 
   // Select the next "limit" number of nids from the node table.
-  $result = db_query_range('SELECT nid FROM {node}', 0, $limit);
+  $result = db_query_range('SELECT nid FROM {node} ORDER BY nid', $context['sandbox']['progress'], $limit);
 
   while ($nid = $result->fetchField()) {
     $in_bedified = _in_bed_it($nid);
